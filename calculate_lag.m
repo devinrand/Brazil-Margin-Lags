@@ -2,39 +2,42 @@ function lags = calculate_lag(C14_results,d18O_results,lag_interp)
 
 % loop through cores
 for i = 1:length(C14_results.summary)
-    C14_depth = C14_results.summary(i).depth;
     C14_samples = C14_results.summary(i).age_samples;
-    d18O_depth = d18O_results.summary(i).depth;
+    C14_depths = C14_results.summary(i).depth;
+    d18O_depths = d18O_results.summary(i).depth;
     d18O_samples = d18O_results.summary(i).age_samples;
-    
-    % combine depths
-    depth_interp = unique(round([d18O_depth; C14_depth],5));
-    
-    % find depth range to calculate lag
-    ind_min = find(depth_interp == max([d18O_depth(1) C14_depth(1)]));
-    ind_max = find(depth_interp == min([d18O_depth(end) C14_depth(end)]));
-    depth_interp = depth_interp(ind_min:ind_max);
-    
-    % interpolate age model samples to depths at which either data exists
-    C14_sampinterp = interp1(C14_depth,C14_samples,depth_interp);
-    d18O_sampinterp = interp1(d18O_depth,d18O_samples,depth_interp);
-    
-     
-    lags(i).name = C14_results.summary(i).name;
-    for j = 1:length(C14_sampinterp(1,:)) % loop through C14 samples
-        % true age comes from each radiocarbon sample
-        lags(i).lag(j).age = C14_sampinterp(:,j); 
-        % produces lag 1000 samples
-        lags(i).lag(j).samp = d18O_sampinterp-lags(i).lag(j).age; 
-        % interpolate lags
-        lags(i).lag(j).interp_samp = interp1(lags(i).lag(j).age,lags(i).lag(j).samp,lag_interp); 
-    end
 
-% combine all lags
-lags(i).all_lag = [lags(i).lag(:).interp_samp];
-lags(i).all_lag_upper = quantile(lags(i).all_lag,0.975,2);
-lags(i).all_lag_lower = quantile(lags(i).all_lag,0.025,2);
-lags(i).all_lag_median = nanmedian(lags(i).all_lag,2);
+    % loop through each C14 sample
+    for j = 1:length(C14_samples(1,:))
+        % get depths of each C14 sample corresponding to lag_interp times
+        depths(:,j) = interp1(C14_samples(:,j),C14_depths,lag_interp);
+    end
+    
+    lag_core = [];
+    for j = 1:length(depths(1,:))
+        % finds ages of d18O samples at lag_interp depths
+        d18O_ages = interp1(d18O_depths,d18O_samples,depths(:,j));
+        lag_core(j).lag = d18O_ages - lag_interp';
+    end
+    lags(i).name = C14_results.summary(i).name;
+    lags(i).age = lag_interp;
+    lags(i).samples = [lag_core(:).lag];
+    lags(i).median = median(lags(i).samples,2);
+    lags(i).lower_95 = quantile(lags(i).samples,0.025,2);
+    lags(i).upper_95 = quantile(lags(i).samples,0.975,2);
+
+    
 end
 
+
+
+        
+
+
+    
+    
+    
+    
+    
+    
 
